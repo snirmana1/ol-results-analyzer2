@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>O/L Results Analyzer</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --bg: #0b1220; --bg-2: #101a30; --panel: #121c33; --panel-2: #16213d;
+      --card: #ffffff; --card-soft: #f7f9fc; --text: #111827; --muted: #6b7280;
+      --line: #e5e7eb; --brand: #4f8cff; --brand-2: #6ee7b7; --brand-3: #f59e0b;
+      --danger: #ef4444; --success: #10b981; --shadow: 0 12px 30px rgba(15,23,42,.10);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; background:linear-gradient(180deg,#eef3fb 0%,#f6f8fc 100%); color:var(--text); font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+    body.dark { background:linear-gradient(180deg,#08101f 0%,#0b1220 100%); color:#e5e7eb; }
+    .app-shell { display:flex; min-height:100vh; }
+    .sidebar { width:280px;flex:0 0 280px;background:linear-gradient(180deg,var(--bg) 0%,var(--bg-2) 100%);color:#e5eefc;padding:22px 18px;position:sticky;top:0;height:100vh;box-shadow:12px 0 30px rgba(0,0,0,.14);z-index:20;display:flex;flex-direction:column; }
+    .brand { display:flex;align-items:center;gap:12px;padding:8px 10px 18px;border-bottom:1px solid rgba(255,255,255,.08);margin-bottom:16px; }
+    .brand-badge { width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,var(--brand) 0%,#7c3aed 100%);display:grid;place-items:center;color:white;font-size:20px; }
+    .brand h1 { font-size:1rem;margin:0;font-weight:800; }
+    .brand p { margin:2px 0 0;color:rgba(229,238,252,.72);font-size:.83rem; }
+    .nav-section-title { font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(229,238,252,.55);margin:18px 10px 10px; }
+    .nav-link-custom { display:flex;align-items:center;gap:12px;color:#dbe7ff;text-decoration:none;padding:12px 14px;border-radius:14px;margin:6px 0;transition:.2s ease;cursor:pointer;border:1px solid transparent; }
+    .nav-link-custom:hover,.nav-link-custom.active { background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.08);transform:translateX(3px); }
+    .nav-link-custom i { width:20px;text-align:center;color:#93c5fd; }
+    .sidebar-footer { margin-top:auto;padding-top:18px;border-top:1px solid rgba(255,255,255,.08);color:rgba(229,238,252,.70);font-size:.9rem; }
+    .main { flex:1;min-width:0; }
+    .topbar { position:sticky;top:0;z-index:15;backdrop-filter:blur(14px);background:rgba(246,248,252,.82);border-bottom:1px solid rgba(148,163,184,.18); }
+    body.dark .topbar { background:rgba(11,18,32,.75);border-bottom-color:rgba(255,255,255,.06); }
+    .topbar-inner { padding:18px 22px;display:flex;align-items:center;gap:14px;justify-content:space-between;flex-wrap:wrap; }
+    .page-title { display:flex;align-items:center;gap:12px; }
+    .page-title h2 { margin:0;font-size:1.4rem;font-weight:800; }
+    .page-title .sub { margin:2px 0 0;color:var(--muted);font-size:.92rem; }
+    body.dark .page-title .sub { color:#9ca3af; }
+    .top-actions { display:flex;gap:10px;align-items:center;flex-wrap:wrap; }
+    .btn-soft { border:1px solid rgba(148,163,184,.22);background:rgba(255,255,255,.75);border-radius:14px;padding:10px 14px;box-shadow:0 6px 16px rgba(15,23,42,.05); }
+    body.dark .btn-soft { background:rgba(255,255,255,.06);color:#e5e7eb;border-color:rgba(255,255,255,.08); }
+    .content { padding:22px; }
+    .panel { background:rgba(255,255,255,.88);border:1px solid rgba(148,163,184,.16);border-radius:var(--radius);box-shadow:var(--shadow); }
+    body.dark .panel { background:rgba(17,26,48,.92);border-color:rgba(255,255,255,.07); }
+    .upload-zone { border:1.5px dashed rgba(79,140,255,.35);background:linear-gradient(135deg,rgba(79,140,255,.08),rgba(110,231,183,.08));border-radius:var(--radius);padding:22px; }
+    .stat-card { background:linear-gradient(180deg,rgba(255,255,255,.95),rgba(247,249,252,.96));border:1px solid rgba(148,163,184,.14);border-radius:22px;padding:18px;box-shadow:var(--shadow);height:100%;position:relative;overflow:hidden; }
+    body.dark .stat-card { background:linear-gradient(180deg,rgba(17,26,48,.98),rgba(14,22,41,.98));border-color:rgba(255,255,255,.07); }
+    .icon-pill { width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(79,140,255,.12);color:var(--brand);margin-bottom:12px; }
+    .stat-label { color:var(--muted);font-size:.85rem;margin-bottom:8px; }
+    .stat-value { font-size:1.8rem;font-weight:900;line-height:1; }
+    .stat-note { font-size:.8rem;color:var(--muted);margin-top:6px; }
+    .card-modern { border-radius:22px;border:1px solid rgba(148,163,184,.16);box-shadow:var(--shadow);overflow:hidden; }
+    body.dark .card-modern { background:rgba(17,26,48,.94);border-color:rgba(255,255,255,.07); }
+    .card-modern .card-header { background:transparent;border-bottom:1px solid rgba(148,163,184,.14);font-weight:800; }
+    .table thead th { position:sticky;top:0;z-index:1;background:#111827!important;color:#fff!important;white-space:nowrap; }
+    .badge-soft { background:rgba(79,140,255,.12);color:var(--brand);border:1px solid rgba(79,140,255,.18); }
+    .badge-pass { background:rgba(16,185,129,.12);color:var(--success);border:1px solid rgba(16,185,129,.18); }
+    .badge-fail { background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.18); }
+    .badge-warm { background:rgba(245,158,11,.12);color:var(--brand-3);border:1px solid rgba(245,158,11,.18); }
+    .subject-code { padding:4px 9px;border-radius:999px;background:#edf2ff;color:#1d4ed8;font-family:monospace;font-size:.82rem; }
+    body.dark .subject-code { background:rgba(79,140,255,.14);color:#bfdbfe; }
+    .section { display:none; }
+    .section.active { display:block; }
+    .filters-grid { display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px; }
+    @media(max-width:1200px){.filters-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+    @media(max-width:992px){.sidebar{position:fixed;left:-290px;transition:.25s ease;}.sidebar.open{left:0;}.mobile-toggle{display:inline-flex!important;}.filters-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media(max-width:576px){.filters-grid{grid-template-columns:1fr;}}
+    .mobile-toggle { display:none!important; }
+    .chart-box { height:400px; }
+    .small-muted { font-size:.84rem;color:var(--muted); }
+    body.dark .small-muted { color:#9ca3af; }
+    .empty-state { padding:22px;text-align:center;color:var(--muted); }
+    .modal-overlay { display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);z-index:1000;align-items:center;justify-content:center; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:#fff;border-radius:28px;width:min(700px,95vw);max-height:90vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.25); }
+    body.dark .modal-box { background:#131f38;color:#e5e7eb; }
+    .modal-header-custom { padding:24px 28px 18px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid rgba(148,163,184,.15); }
+    .modal-student-meta { display:flex;align-items:center;gap:16px; }
+    .modal-avatar { width:54px;height:54px;border-radius:18px;background:linear-gradient(135deg,var(--brand),#7c3aed);display:grid;place-items:center;color:#fff;font-size:22px;font-weight:900;flex-shrink:0; }
+    .modal-name { font-size:1.25rem;font-weight:900;margin-bottom:4px; }
+    .modal-meta-row { display:flex;gap:10px;flex-wrap:wrap; }
+    .modal-meta-pill { padding:4px 12px;border-radius:999px;font-size:.78rem;font-weight:600;background:rgba(148,163,184,.12);color:var(--muted); }
+    .modal-close { width:36px;height:36px;border-radius:12px;border:none;background:rgba(148,163,184,.12);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:16px;transition:.15s; }
+    .modal-close:hover { background:rgba(239,68,68,.1);color:var(--danger); }
+    .modal-body-custom { padding:22px 28px; }
+    .grade-pill { padding:5px 14px;border-radius:999px;font-weight:800;font-size:.85rem;display:inline-block; }
+    .grade-A { background:#dcfce7;color:#15803d; }
+    .grade-B { background:#dbeafe;color:#1d4ed8; }
+    .grade-C { background:#fef9c3;color:#854d0e; }
+    .grade-S { background:#fce7f3;color:#9d174d; }
+    .grade-W { background:#fee2e2;color:#991b1b; }
+    body.dark .grade-A { background:rgba(16,185,129,.15);color:#6ee7b7; }
+    body.dark .grade-B { background:rgba(79,140,255,.15);color:#93c5fd; }
+    body.dark .grade-C { background:rgba(245,158,11,.15);color:#fcd34d; }
+    body.dark .grade-S { background:rgba(236,72,153,.15);color:#f9a8d4; }
+    body.dark .grade-W { background:rgba(239,68,68,.15);color:#fca5a5; }
+    .score-mini { flex:1;min-width:100px;padding:14px;border-radius:16px;text-align:center;background:rgba(79,140,255,.08);border:1px solid rgba(79,140,255,.18); }
+    .score-mini .val { font-size:1.5rem;font-weight:900; }
+    .score-mini .lbl { font-size:.75rem;color:var(--muted); }
+    .modal-score-row { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px; }
+
+    /* ===== PRINT STYLES (clean, no sidebar, no filters) ===== */
+    @media print {
+      body, html { background:#fff!important; margin:0; padding:0; }
+      .app-shell, .sidebar, .topbar, .upload-zone, .filters-grid, .top-actions, .nav-link-custom, .btn, .mobile-toggle, .panel, #errorMsg, #debugInfo { display:none!important; }
+      .print-content { display:block!important; }
+      .print-page { page-break-after:always; padding:30px 40px; }
+      .print-page:last-child { page-break-after:avoid; }
+      .print-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px; padding-bottom:14px; border-bottom:2px solid #111; }
+      .print-school-name { font-size:22pt; font-weight:900; margin:0; line-height:1.2; }
+      .print-report-type { font-size:11pt; color:#555; margin:2px 0 0; }
+      .print-date { font-size:10pt; color:#555; text-align:right; }
+      .print-stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+      .print-stat { border:1px solid #ddd; border-radius:10px; padding:14px 12px; text-align:center; }
+      .print-stat .val { font-size:18pt; font-weight:900; display:block; }
+      .print-stat .lbl { font-size:9pt; color:#555; display:block; margin-top:4px; }
+      .print-section-title { font-size:13pt; font-weight:800; margin:20px 0 10px; padding-bottom:4px; border-bottom:1.5px solid #e5e7eb; }
+      .print-table { width:100%; border-collapse:collapse; font-size:9.5pt; margin:10px 0; }
+      .print-table th { background:#111!important; color:#fff!important; padding:7px 10px; text-align:left; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+      .print-table td { padding:6px 10px; border-bottom:1px solid #e5e7eb; }
+      .print-footer { margin-top:30px; padding-top:12px; border-top:1px solid #ccc; font-size:8pt; color:#888; display:flex; justify-content:space-between; }
+      .print-student-meta { display:flex; gap:20px; flex-wrap:wrap; margin:8px 0 16px; }
+      .print-student-meta span { font-size:10.5pt; }
+      .print-grade-summary { display:flex; gap:18px; margin:10px 0 18px; }
+      .print-grade-summary div { font-size:11pt; }
+    }
+    .print-content { display:none; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-badge"><i class="fa-solid fa-chart-column"></i></div><div><h1>Results Dashboard</h1><p>OL Analyser</p></div></div>
+    <div class="nav-section-title">Navigation</div>
+    <a class="nav-link-custom active" data-section="overview"><i class="fa-solid fa-gauge-high"></i>Overview</a>
+    <a class="nav-link-custom" data-section="students"><i class="fa-solid fa-user-graduate"></i>Student Details</a>
+    <a class="nav-link-custom" data-section="subjects"><i class="fa-solid fa-book-open"></i>Subject Analysis</a>
+    <a class="nav-link-custom" data-section="reports"><i class="fa-solid fa-file-export"></i>Reports</a>
+    <div class="nav-section-title">Tools</div>
+    <a class="nav-link-custom" id="btnTheme"><i class="fa-solid fa-moon"></i>Dark / Light</a>
+    <a class="nav-link-custom" id="btnReset"><i class="fa-solid fa-rotate-left"></i>Reset Filters</a>
+    <div class="sidebar-footer"><div class="small">Upload Excel to generate analytics.</div><div class="small mt-2" id="sidebarMeta">No file loaded</div></div>
+  </aside>
+  <main class="main">
+    <div class="topbar"><div class="topbar-inner">
+      <div class="page-title"><button class="btn btn-soft mobile-toggle" id="btnSidebar"><i class="fa-solid fa-bars"></i></button><div><h2 id="dashTitle">Overview</h2><div class="sub" id="dashSub">Upload Excel</div></div></div>
+      <div class="top-actions">
+        <button class="btn btn-soft" id="btnPrintSubject"><i class="fa-solid fa-print me-2"></i>Print Subject Report</button>
+        <button class="btn btn-soft" id="btnPrintStudent"><i class="fa-solid fa-print me-2"></i>Print Student Report</button>
+        <button class="btn btn-soft" id="btnExportExcel"><i class="fa-solid fa-file-excel me-2"></i>Export Excel</button>
+        <button class="btn btn-primary rounded-4 px-3" id="btnUpload"><i class="fa-solid fa-upload me-2"></i>Upload Excel</button>
+        <input type="file" id="excelUpload" accept=".xlsx,.xls" hidden>
+      </div>
+    </div></div>
+    <div class="content">
+      <div class="panel mb-4"><div class="panel-body"><div class="upload-zone d-flex align-items-center justify-content-between gap-3 flex-wrap"><div><h5><i class="fa-solid fa-file-arrow-up me-2"></i>Load results file</h5><p class="mb-0">Supports format: e.g., <kbd>115A 1</kbd> → code 11, grade A</p></div><div class="text-end"><div class="small-muted">.xlsx / .xls</div><div class="small-muted">W = Fail</div></div></div><div id="errorMsg" class="alert alert-danger mt-3 d-none"></div><div id="debugInfo" class="small-muted mt-3"></div></div></div>
+      <!-- Overview -->
+      <section id="overview" class="section active"><div class="row g-3 mb-4" id="statsCards"></div><div class="row g-3 mb-4"><div class="col-lg-8"><div class="card card-modern h-100"><div class="card-header">Result Trend</div><div class="card-body"><div class="chart-box"><canvas id="trendChart"></canvas></div></div></div></div><div class="col-lg-4"><div class="card card-modern h-100"><div class="card-header">Pass / Fail Split</div><div class="card-body"><div class="chart-box" style="height:300px"><canvas id="splitChart"></canvas></div><div class="small-muted text-center mt-2" id="splitMeta"></div></div></div></div></div><div class="row g-3"><div class="col-lg-6"><div class="card card-modern h-100"><div class="card-header">Class / Teacher Performance</div><div class="card-body" id="teacherPerformanceBox"></div></div></div><div class="col-lg-6"><div class="card card-modern h-100"><div class="card-header">Subject Strength Index</div><div class="card-body"><div class="chart-box"><canvas id="heatmapChart"></canvas></div></div></div></div></div></section>
+      <!-- Students -->
+      <section id="students" class="section"><div class="card card-modern mb-4"><div class="card-header">Student Filters</div><div class="card-body"><div class="filters-grid"><input id="searchStudent" class="form-control" placeholder="Search"><select id="filterGender" class="form-select"><option>All Genders</option><option>Male</option><option>Female</option></select><select id="filterMedium" class="form-select"><option>All Mediums</option></select><select id="filterPass" class="form-select"><option>All Status</option><option value="pass">Pass</option><option value="fail">Fail</option></select><select id="filterSubject" class="form-select"><option>All Subjects</option></select><select id="sortStudents" class="form-select"><option value="name">Sort by Name</option><option value="indexNo">Index</option><option value="passCount">Pass Count</option></select></div></div></div><div class="card card-modern"><div class="card-header d-flex justify-content-between"><span>Candidate Results</span><span class="badge badge-soft" id="studentCountBadge">0 students</span></div><div class="card-body p-0"><div class="table-responsive" style="max-height:560px;overflow:auto;"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Index</th><th>Name</th><th>Gender</th><th>Medium</th><th>Subjects</th><th>Grade Count</th><th>Action</th></tr></thead><tbody id="studentBody"></tbody></table></div></div></div></section>
+      <!-- Subjects -->
+      <section id="subjects" class="section"><div class="row g-3 mb-4"><div class="col-12"><div class="card card-modern h-100"><div class="card-header">Subject Comparison</div><div class="card-body"><div class="chart-box" style="height:450px"><canvas id="subjectChart"></canvas></div></div></div></div></div><div class="card card-modern mb-4"><div class="card-header d-flex justify-content-between"><span>Subject-wise Grade Distribution</span><span class="badge badge-soft" id="subjectCountBadge">0 subjects</span></div><div class="card-body p-0"><div class="table-responsive" style="max-height:560px;"><table class="table table-hover mb-0"><thead><tr><th>Code</th><th>Subject</th><th>Total</th><th>A</th><th>B</th><th>C</th><th>S</th><th>W</th><th>Pass%</th></tr></thead><tbody id="subjectBody"></tbody></table></div></div></div><div class="card card-modern"><div class="card-header">Progress by Subject</div><div class="card-body" id="progressBox"></div></div></section>
+      <!-- Reports -->
+      <section id="reports" class="section"><div class="card card-modern"><div class="card-header">Export & Print</div><div class="card-body"><button class="btn btn-outline-primary w-100 mb-2" id="btnExportExcel2"><i class="fa-solid fa-file-excel"></i> Export Excel</button><button class="btn btn-outline-secondary w-100" id="btnPrintAllStudents"><i class="fa-solid fa-print"></i> Print All Student Reports</button></div></div></section>
+    </div>
+  </main>
+</div>
+
+<!-- Student Detail Modal -->
+<div class="modal-overlay" id="studentModal"><div class="modal-box"><div class="modal-header-custom"><div class="modal-student-meta"><div class="modal-avatar" id="modalAvatar">?</div><div><div class="modal-name" id="modalName">—</div><div class="modal-meta-row" id="modalMetaRow"></div></div></div><button class="modal-close" id="modalClose"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body-custom"><div class="modal-score-row" id="modalScoreRow"></div><div class="modal-section-title">Subject Results</div><table class="table table-sm"><thead><tr><th>Code</th><th>Subject</th><th>Medium</th><th>Grade</th><th>Competency</th><th>Result</th></tr></thead><tbody id="modalSubjectBody"></tbody></table></div></div></div>
+
+<!-- Hidden print containers -->
+<div class="print-content" id="printSubjectContainer"></div>
+<div class="print-content" id="printStudentContainer"></div>
+
+<script>
+// ---------- Subject Names ----------
+const SUBJECT_NAMES = {
+  11:"Buddhism",12:"Saivanery",14:"Catholicism",15:"Christianity",16:"Islam",
+  21:"Sinhala Language & Literature",22:"Tamil Language & Literature",31:"English Language",
+  32:"Mathematics",33:"History",34:"Science",40:"Music (Oriental)",41:"Music (Western)",42:"Music (Carnatic)",43:"Art",
+  44:"Dancing (Oriental)",45:"Dancing (Bharata)",46:"English Lit",47:"Sinhala Lit",48:"Tamil Lit",
+  49:"Arabic Lit",50:"Drama (Sinhala)",51:"Drama (Tamil)",52:"Drama (English)",
+  60:"Business & Accounting",61:"Geography",62:"Civic Education",63:"Entrepreneurship",
+  64:"Second Language (Sinhala)",65:"Second Language (Tamil)",66:"Pali",67:"Sanskrit",
+  68:"French",69:"German",70:"Hindi",71:"Japanese",72:"Arabic",73:"Korean",74:"Chinese",75:"Russian",
+  80:"ICT",81:"Agriculture & Food Tech",82:"Aquatic Bioresources",84:"Art & Crafts",85:"Home Economics",
+  86:"Health & PE",87:"Communication & Media",88:"Design & Construction",89:"Design & Mechanical",
+  90:"Design Electrical",92:"EWS (Sinhala)",93:"EWS (Tamil)",94:"EWS (English)"
+};
+function getSubjectName(code) { return SUBJECT_NAMES[code] || `Subject ${code}`; }
+
+let state = { students:[], subjectStats:new Map(), classStats:new Map(), charts:{}, currentStudentIndex:null };
+
+function isDark() { return document.body.classList.contains('dark'); }
+
+// ----- PARSER (new format) -----
+function parseSubjectCell(raw) {
+  if(!raw || raw==='-' || raw===' - ') return null;
+  let str = raw.toString().trim();
+  if(str==='') return null;
+  let parts = str.split(/\s+/);
+  let core = parts[0];
+  let competency = parts.length > 1 ? parts[1] : null;
+  let codeMatch = core.match(/^(\d{2})/);
+  if(!codeMatch) return null;
+  let code = parseInt(codeMatch[1],10);
+  let gradeMatch = core.match(/[ABCSPW]$/i);
+  if(!gradeMatch) {
+    if(parts.length > 1 && parts[1].match(/^[ABCSPW]$/i)) {
+      gradeMatch = parts[1].match(/[ABCSPW]/i);
+      competency = parts.length > 2 ? parts[2] : null;
+    }
+  }
+  let grade = gradeMatch ? gradeMatch[0].toUpperCase() : null;
+  if(!grade) return null;
+  let medium = null;
+  let coreWithoutCode = core.substring(2);
+  let mediumMatch = coreWithoutCode.match(/[STEW]/i);
+  if(mediumMatch) medium = mediumMatch[0].toUpperCase();
+  return { subjectCode:code, medium:medium || '?', grade, competency:competency || null };
+}
+
+function parseGradeCount(val) {
+  if(!val || val==='-') return null;
+  let str = val.toString().trim();
+  let parts = str.split(/\s+/).filter(p=>p!=='');
+  if(parts.length === 5) {
+    let nums = parts.map(v=>parseInt(v,10)||0);
+    return { A:nums[0], B:nums[1], C:nums[2], S:nums[3], W:nums[4] };
+  }
+  if(parts.length === 3) {
+    let a = parseInt(parts[0])||0;
+    let middle = parts[1];
+    let c = parseInt(parts[2])||0;
+    let b = 0, s = 0;
+    if(middle.length >= 2) {
+      b = parseInt(middle[0])||0;
+      s = parseInt(middle[1])||0;
+      if(middle.length > 2) s = parseInt(middle[2])||0;
+    }
+    return { A:a, B:b, C:middle.length>=2?parseInt(middle[1])||0:0, S:parseInt(middle[middle.length-1])||0, W:c };
+  }
+  return null;
+}
+
+function calcPassCount(subjects) { return subjects.filter(s=>['A','B','C','S'].includes(s.grade)).length; }
+function calcFailCount(subjects) { return subjects.filter(s=>s.grade==='W').length; }
+function avgScore(student) { if(!student.subjects.length) return 0; const gs=g=>({A:5,B:4,C:3,S:2,W:0})[g]||0; return (student.subjects.reduce((a,s)=>a+gs(s.grade),0)/student.subjects.length).toFixed(1); }
+function overallPass(student) {
+  let map = new Map(); student.subjects.forEach(s=>{ if(!map.has(s.subjectCode) || gradeScore(s.grade)>gradeScore(map.get(s).grade)) map.set(s.subjectCode,s); });
+  let core=[31,11,34,33,32];
+  let corePass=0;
+  if((map.has(21)&&['A','B','C','S'].includes(map.get(21).grade))||(map.has(22)&&['A','B','C','S'].includes(map.get(22).grade))) corePass++;
+  for(let c of core) if(map.has(c) && ['A','B','C','S'].includes(map.get(c).grade)) corePass++;
+  let totalPass=student.subjects.filter(s=>['A','B','C','S'].includes(s.grade)).length;
+  return (corePass>=6 && totalPass>=6);
+}
+function gradeScore(g){ return {A:5,B:4,C:3,S:2,W:0}[g]||0; }
+
+// ----- Render Functions -----
+function renderKpis() {
+  let students=state.students, subjectEntries=Array.from(state.subjectStats.values());
+  let totalStudents=students.length, totalSubjectEntries=subjectEntries.reduce((s,stat)=>s+stat.total,0);
+  let totalPasses=students.reduce((s,st)=>s+calcPassCount(st.subjects),0);
+  let totalFails=students.reduce((s,st)=>s+calcFailCount(st.subjects),0);
+  let avgSubjects=totalStudents?(totalSubjectEntries/totalStudents).toFixed(1):'0.0';
+  let passRate=totalSubjectEntries?((totalPasses/totalSubjectEntries)*100).toFixed(1):'0.0';
+  let highest=subjectEntries.sort((a,b)=>b.total-a.total)[0];
+  let strongest=subjectEntries.map(s=>({...s,ratio:(s.A+s.B+s.C+s.S)/Math.max(1,s.total)})).sort((a,b)=>b.ratio-a.ratio)[0];
+  let bestStudent=students.map(s=>({...s,score:parseFloat(avgScore(s))})).sort((a,b)=>b.score-a.score)[0];
+  let atRisk=students.filter(s=>calcFailCount(s.subjects)>=2).length;
+  document.getElementById('statsCards').innerHTML=`
+    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-users"></i></div><div class="stat-label">Total Students</div><div class="stat-value">${totalStudents}</div><div class="stat-note">Ø subjects ${avgSubjects}</div></div></div>
+    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-circle-check"></i></div><div class="stat-label">Pass Rate</div><div class="stat-value">${passRate}%</div><div class="stat-note">${totalPasses} passes</div></div></div>
+    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill" style="background:rgba(239,68,68,.12);color:var(--danger)"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="stat-label">At-Risk</div><div class="stat-value" style="color:var(--danger)">${atRisk}</div><div class="stat-note">2+ fails</div></div></div>
+    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-trophy"></i></div><div class="stat-label">Top Subject</div><div class="stat-value" style="font-size:1.1rem">${highest?highest.name:'—'}</div><div class="stat-note">${highest?highest.total+' reg':''}</div></div></div>
+    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-chart-simple"></i></div><div class="stat-label">Best Subject</div><div class="stat-value" style="font-size:1.1rem">${strongest?strongest.name:'—'}</div><div class="stat-note">highest pass %</div></div></div>
+    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-star"></i></div><div class="stat-label">Best Student</div><div class="stat-value" style="font-size:1rem">${bestStudent?bestStudent.name.substring(0,18):'—'}</div><div class="stat-note">score ${bestStudent?bestStudent.score:''}</div></div></div>
+  `;
+}
+
+function destroyChart(key){ if(state.charts[key]){ state.charts[key].destroy(); state.charts[key]=null; } }
+
+function renderCharts() {
+  let entries=Array.from(state.subjectStats.values()).sort((a,b)=>b.total-a.total).slice(0,15);
+  let labels=entries.map(s=>s.name.length>18?s.name.slice(0,16)+'…':s.name);
+  let passes=entries.map(s=>s.A+s.B+s.C+s.S);
+  let fails=entries.map(s=>s.W);
+  let totals=entries.map(s=>s.total);
+  destroyChart('trend');destroyChart('split');destroyChart('subject');destroyChart('heatmap');
+  let colors={primary:'#4f8cff',success:'#10b981',danger:'#ef4444'};
+  state.charts.trend=new Chart(document.getElementById('trendChart'),{type:'line',data:{labels,datasets:[{label:'Registrations',data:totals,borderColor:colors.primary,tension:0.3,fill:true,backgroundColor:'rgba(79,140,255,.1)'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+  let totalPass=state.students.reduce((s,st)=>s+calcPassCount(st.subjects),0);
+  let totalFail=state.students.reduce((s,st)=>s+calcFailCount(st.subjects),0);
+  state.charts.split=new Chart(document.getElementById('splitChart'),{type:'doughnut',data:{labels:['Pass','Fail'],datasets:[{data:[totalPass,totalFail],backgroundColor:[colors.success,colors.danger],borderWidth:0}]},options:{cutout:'68%',plugins:{legend:{position:'bottom'}}}});
+  document.getElementById('splitMeta').textContent=`${totalPass} passes, ${totalFail} fails`;
+  state.charts.subject=new Chart(document.getElementById('subjectChart'),{type:'bar',data:{labels,datasets:[{label:'Passes',data:passes,backgroundColor:colors.primary},{label:'Fails',data:fails,backgroundColor:colors.danger}]}});
+  state.charts.heatmap=new Chart(document.getElementById('heatmapChart'),{type:'bar',data:{labels,datasets:[{label:'Strength %',data:entries.map(s=>((s.A+s.B+s.C+s.S)/Math.max(1,s.total)*100).toFixed(1)),backgroundColor:colors.primary}]}});
+}
+
+function renderTeacherPerformance() {
+  let groups=new Map();
+  for(let s of state.students){ let key=s.className||s.teacher||'All'; if(!groups.has(key)) groups.set(key,{total:0,passSum:0,failSum:0,scoreSum:0}); let g=groups.get(key); g.total++; g.passSum+=calcPassCount(s.subjects); g.failSum+=calcFailCount(s.subjects); g.scoreSum+=parseFloat(avgScore(s)); }
+  let sorted=Array.from(groups.entries()).map(([name,v])=>({name,total:v.total,passPercent: (v.passSum+v.failSum)?((v.passSum/(v.passSum+v.failSum))*100).toFixed(1):'0.0', avgScore:v.total?(v.scoreSum/v.total).toFixed(1):'0.0'})).sort((a,b)=>parseFloat(b.passPercent)-parseFloat(a.passPercent));
+  document.getElementById('teacherPerformanceBox').innerHTML=sorted.slice(0,5).map((row,i)=>`<div class="mb-3"><div class="d-flex justify-content-between"><b>${i+1}. ${row.name}</b><span class="small-muted">Pass ${row.passPercent}%</span></div><div class="progress" style="height:12px"><div class="progress-bar ${i===0?'bg-success':i===1?'bg-primary':'bg-info'}" style="width:${row.passPercent}%"></div></div><div class="small-muted mt-1">Total ${row.total} | Avg ${row.avgScore}</div></div>`).join('')||'<div class="empty-state">No group data</div>';
+}
+
+function renderSubjectTable() {
+  let entries=Array.from(state.subjectStats.entries()).map(([code,stat])=>({code,...stat})).sort((a,b)=>b.total-a.total);
+  document.getElementById('subjectCountBadge').textContent=`${entries.length} subjects`;
+  document.getElementById('subjectBody').innerHTML=entries.map(stat=>{let p=stat.total?(((stat.A+stat.B+stat.C+stat.S)/stat.total)*100).toFixed(1):'0.0'; return `<tr><td><span class="subject-code">${stat.code}</span></td><td>${stat.name}</td><td>${stat.total}</td><td>${stat.A}</td><td>${stat.B}</td><td>${stat.C}</td><td>${stat.S}</td><td>${stat.W}</td><td><span class="badge ${p>=75?'badge-pass':p>=50?'badge-warm':'badge-fail'}">${p}%</span></td>`;}).join('');
+  document.getElementById('progressBox').innerHTML=entries.slice(0,10).map(stat=>{let p=stat.total?(((stat.A+stat.B+stat.C+stat.S)/stat.total)*100).toFixed(0):0; return `<div class="mb-3"><div class="d-flex justify-content-between"><span>${stat.name}</span><span>${p}%</span></div><div class="progress"><div class="progress-bar" style="width:${p}%;background:linear-gradient(90deg,#4f8cff,#8b5cf6)"></div></div></div>`;}).join('');
+}
+
+function filterStudents() {
+  let q=document.getElementById('searchStudent').value.trim().toLowerCase();
+  let gender=document.getElementById('filterGender').value;
+  let medium=document.getElementById('filterMedium').value;
+  let passState=document.getElementById('filterPass').value;
+  let subjFilter=document.getElementById('filterSubject').value;
+  let sort=document.getElementById('sortStudents').value;
+  let filtered=state.students.filter(s=>{
+    if(q && !s.name.toLowerCase().includes(q) && !s.indexNo.toLowerCase().includes(q)) return false;
+    if(gender!=='All Genders' && s.gender!==gender) return false;
+    if(medium!=='All Mediums' && s.medium!==medium) return false;
+    let overall=overallPass(s);
+    if(passState==='pass' && !overall) return false;
+    if(passState==='fail' && overall) return false;
+    if(subjFilter!=='All Subjects' && !s.subjects.some(sub=>sub.subjectCode.toString()===subjFilter)) return false;
+    return true;
+  });
+  if(sort==='name') filtered.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sort==='indexNo') filtered.sort((a,b)=>a.indexNo.localeCompare(b.indexNo));
+  else if(sort==='passCount') filtered.sort((a,b)=>calcPassCount(b.subjects)-calcPassCount(a.subjects));
+  return filtered;
+}
+
+function renderStudents() {
+  let filtered=filterStudents();
+  document.getElementById('studentCountBadge').textContent=`${filtered.length} students`;
+  let tbody=document.getElementById('studentBody');
+  tbody.innerHTML=filtered.map((s,idx)=>{
+    let realIdx=state.students.indexOf(s);
+    let gc=parseGradeCount(s.gradeCountRaw) || {A:0,B:0,C:0,S:0,W:0};
+    let gcHtml=`<span class="badge badge-soft">A:${gc.A}</span> <span class="badge badge-soft">B:${gc.B}</span> <span class="badge badge-soft">C:${gc.C}</span> <span class="badge badge-warm">S:${gc.S}</span> <span class="badge badge-fail">W:${gc.W}</span>`;
+    let subjectsHtml=s.subjects.map(sub=>`<span class="badge bg-light text-dark me-1">${sub.subjectCode}${sub.medium}:${sub.grade}</span>`).join(' ');
+    let passRate=s.subjects.length?((calcPassCount(s.subjects)/s.subjects.length)*100).toFixed(0)+'%':'0%';
+    let atRiskBadge=calcFailCount(s.subjects)>=2?' <span class="badge badge-fail">At Risk</span>':'';
+    return `<tr><td>${s.indexNo||'—'}</td><td>${s.name}${atRiskBadge}</td><td>${s.gender||'—'}</td><td>${s.medium||'—'}</td><td style="min-width:260px">${subjectsHtml||'—'}</td><td>${gcHtml}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openStudentModal(${realIdx})"><i class="fa-regular fa-eye"></i></button></td></tr>`;
+  }).join('');
+  if(!filtered.length) tbody.innerHTML='<tr><td colspan="7" class="text-center py-4">No matching students</td></tr>';
+}
+
+// ----- Modal -----
+function openStudentModal(idx) {
+  let s=state.students[idx]; if(!s) return;
+  document.getElementById('modalAvatar').textContent=s.name.trim()[0]||'?';
+  document.getElementById('modalName').textContent=s.name;
+  document.getElementById('modalMetaRow').innerHTML=`<span class="modal-meta-pill">${s.gender||'Unknown'}</span><span class="modal-meta-pill">${s.medium||'—'} Medium</span><span class="modal-meta-pill">${s.indexNo||'No index'}</span>`;
+  let gc=parseGradeCount(s.gradeCountRaw) || {A:0,B:0,C:0,S:0,W:0};
+  document.getElementById('modalScoreRow').innerHTML=`<div class="score-mini"><div class="val">${s.subjects.length}</div><div class="lbl">Total</div></div><div class="score-mini"><div class="val" style="color:var(--success)">${calcPassCount(s.subjects)}</div><div class="lbl">Pass</div></div><div class="score-mini"><div class="val" style="color:var(--danger)">${calcFailCount(s.subjects)}</div><div class="lbl">Fail</div></div><div class="score-mini"><div class="val" style="color:#7c3aed">${avgScore(s)}</div><div class="lbl">Avg</div></div>`;
+  document.getElementById('modalSubjectBody').innerHTML=s.subjects.map(sub=>{
+    let pass=['A','B','C','S'].includes(sub.grade);
+    return `<tr><td>${sub.subjectCode}</td><td>${getSubjectName(sub.subjectCode)}</td><td>${sub.medium}</td><td><span class="grade-pill grade-${sub.grade}">${sub.grade}</span></td><td>${sub.competency||'—'}</td><td><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'Pass':'Fail'}</span></td></tr>`;
+  }).join('')||'<tr><td colspan="6" class="text-center py-3">No subject data</td></tr>';
+  document.getElementById('studentModal').classList.add('open');
+}
+document.getElementById('modalClose').addEventListener('click',()=>document.getElementById('studentModal').classList.remove('open'));
+document.getElementById('studentModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
+window.openStudentModal=openStudentModal;
+
+// ----- PRINT: Subject Report -----
+function printSubjectReport() {
+  if(!state.students.length){ alert('No data loaded.'); return; }
+  let subjectEntries=Array.from(state.subjectStats.entries()).map(([code,stat])=>({code,...stat})).sort((a,b)=>b.total-a.total);
+  let classGroups=Array.from(state.classStats.entries()).map(([name,v])=>({name,...v})).sort((a,b)=>parseFloat(b.passPercent)-parseFloat(a.passPercent));
+  let totalPass=state.students.reduce((s,st)=>s+calcPassCount(st.subjects),0);
+  let totalSubjectEntries=Array.from(state.subjectStats.values()).reduce((s,stat)=>s+stat.total,0);
+  let passRate=totalSubjectEntries?((totalPass/totalSubjectEntries)*100).toFixed(1):'0.0';
+  let atRisk=state.students.filter(s=>calcFailCount(s.subjects)>=2).length;
+  let strongest=Array.from(state.subjectStats.values()).map(s=>({...s,pct:((s.A+s.B+s.C+s.S)/Math.max(1,s.total))*100})).sort((a,b)=>b.pct-a.pct)[0];
+  let html = `<div class="print-page">
+    <div class="print-header"><div><div class="print-school-name">O/L Results – Subject Analysis</div><div class="print-report-type">Subject-wise grade distribution & performance</div></div><div class="print-date">${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}</div></div>
+    <div class="print-stat-row">
+      <div class="print-stat"><span class="val">${state.students.length}</span><span class="lbl">Total Candidates</span></div>
+      <div class="print-stat"><span class="val">${passRate}%</span><span class="lbl">Overall Pass Rate</span></div>
+      <div class="print-stat"><span class="val">${atRisk}</span><span class="lbl">At-Risk Students</span></div>
+      <div class="print-stat"><span class="val">${state.subjectStats.size}</span><span class="lbl">Subjects Offered</span></div>
+    </div>
+    <div class="print-section-title">Subject-wise Grade Distribution</div>
+    <table class="print-table"><thead><tr><th>Code</th><th>Subject</th><th>Total</th><th>A</th><th>B</th><th>C</th><th>S</th><th>W</th><th>Pass %</th></tr></thead><tbody>
+    ${subjectEntries.map(stat=>{let p=((stat.A+stat.B+stat.C+stat.S)/Math.max(1,stat.total)*100).toFixed(1); return `<tr><td>${stat.code}</td><td>${stat.name}</td><td>${stat.total}</td><td>${stat.A}</td><td>${stat.B}</td><td>${stat.C}</td><td>${stat.S}</td><td>${stat.W}</td><td><b>${p}%</b></td></tr>`;}).join('')}
+    </tbody></table>
+    <div class="print-section-title">Class / Teacher Performance</div>
+    <table class="print-table"><thead><tr><th>Group</th><th>Total</th><th>Pass %</th><th>Avg Score</th></tr></thead><tbody>
+    ${classGroups.map(g=>`<tr><td>${g.name}</td><td>${g.total}</td><td>${g.passPercent}%</td><td>${g.avgScore}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="print-footer"><span>O/L Results Analyzer</span><span>Confidential</span></div>
+  </div>`;
+  let win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Subject Analysis Report</title><style>body{font-family:sans-serif;margin:0;padding:20px;} .print-page{max-width:1200px;margin:0 auto;} .print-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:24px;} .print-school-name{font-size:22pt;font-weight:900;margin:0;} .print-report-type{font-size:11pt;color:#555;margin:0;} .print-date{font-size:10pt;color:#555;text-align:right;} .print-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;} .print-stat{border:1px solid #ddd;border-radius:10px;padding:14px;text-align:center;} .print-stat .val{font-size:18pt;font-weight:900;display:block;} .print-stat .lbl{font-size:9pt;color:#555;} .print-section-title{font-size:13pt;font-weight:800;margin:20px 0 10px;border-bottom:1.5px solid #e5e7eb;padding-bottom:4px;} .print-table{width:100%;border-collapse:collapse;font-size:9.5pt;margin:10px 0;} .print-table th{background:#111!important;color:#fff!important;padding:7px 10px;text-align:left;print-color-adjust:exact;} .print-table td{padding:6px 10px;border-bottom:1px solid #e5e7eb;} .print-footer{margin-top:30px;padding-top:12px;border-top:1px solid #ccc;font-size:8pt;color:#888;display:flex;justify-content:space-between;}
+</style></head><body>${html}</body></html>`);
+  win.document.close();
+  setTimeout(()=>{ win.print(); },300);
+}
+
+// ----- PRINT: Student Report (one per page) -----
+function printStudentReport() {
+  if(!state.students.length){ alert('No data loaded.'); return; }
+  let pages = state.students.map((s,i)=>{
+    let gc=parseGradeCount(s.gradeCountRaw) || {A:0,B:0,C:0,S:0,W:0};
+    let passStatus = overallPass(s) ? 'PASS' : 'FAIL';
+    let passBadge = overallPass(s) ? '✅ PASS' : '❌ FAIL';
+    return `<div class="print-page">
+      <div class="print-header"><div><div class="print-school-name">${s.name}</div><div class="print-report-type">Individual Student Report · ${s.indexNo||'No Index'}</div></div><div class="print-date">${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}</div></div>
+      <div class="print-student-meta">
+        <span><b>Gender:</b> ${s.gender||'—'}</span>
+        <span><b>Medium:</b> ${s.medium||'—'}</span>
+        <span><b>Attempt:</b> ${s.attempt||'—'}</span>
+        <span><b>Overall:</b> <span style="color:${overallPass(s)?'#10b981':'#ef4444'};font-weight:900;">${passBadge}</span></span>
+      </div>
+      <div class="print-grade-summary">
+        <div><b>A:</b> ${gc.A}</div>
+        <div><b>B:</b> ${gc.B}</div>
+        <div><b>C:</b> ${gc.C}</div>
+        <div><b>S:</b> ${gc.S}</div>
+        <div><b>W:</b> ${gc.W}</div>
+        <div style="margin-left:auto;"><b>Passed:</b> ${calcPassCount(s.subjects)} | <b>Failed:</b> ${calcFailCount(s.subjects)}</div>
+      </div>
+      <div class="print-section-title">Subject Results</div>
+      <table class="print-table"><thead><tr><th>Code</th><th>Subject</th><th>Medium</th><th>Grade</th><th>Result</th></tr></thead><tbody>
+      ${s.subjects.map(sub=>{let pass=['A','B','C','S'].includes(sub.grade); return `<tr><td>${sub.subjectCode}</td><td>${getSubjectName(sub.subjectCode)}</td><td>${sub.medium}</td><td><b>${sub.grade}</b></td><td>${pass?'PASS':'FAIL'}</td></tr>`;}).join('')}
+      </tbody></table>
+      <div class="print-footer"><span>O/L Results Analyzer</span><span>Confidential – Page ${i+1} of ${state.students.length}</span></div>
+    </div>`;
+  }).join('');
+  let win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Student Reports</title><style>body{font-family:sans-serif;margin:0;padding:20px;} .print-page{max-width:1100px;margin:0 auto;page-break-after:always;padding:20px 10px;} .print-page:last-child{page-break-after:avoid;} .print-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:20px;} .print-school-name{font-size:20pt;font-weight:900;margin:0;} .print-report-type{font-size:10pt;color:#555;margin:0;} .print-date{font-size:9pt;color:#555;text-align:right;} .print-student-meta{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0 14px;font-size:10.5pt;} .print-grade-summary{display:flex;gap:18px;margin:10px 0 16px;font-size:11pt;} .print-section-title{font-size:12pt;font-weight:800;margin:16px 0 8px;border-bottom:1.5px solid #e5e7eb;padding-bottom:4px;} .print-table{width:100%;border-collapse:collapse;font-size:9.5pt;} .print-table th{background:#111!important;color:#fff!important;padding:7px 10px;text-align:left;print-color-adjust:exact;} .print-table td{padding:6px 10px;border-bottom:1px solid #e5e7eb;} .print-footer{margin-top:24px;padding-top:10px;border-top:1px solid #ccc;font-size:8pt;color:#888;display:flex;justify-content:space-between;}
+</style></head><body>${pages}</body></html>`);
+  win.document.close();
+  setTimeout(()=>{ win.print(); },300);
+}
+
+// ----- Parse Excel -----
+function parseExcel(file) {
+  const reader=new FileReader();
+  reader.onload=function(evt){
+    try{
+      const data=new Uint8Array(evt.target.result);
+      const workbook=XLSX.read(data,{type:'array'});
+      const sheet=workbook.Sheets[workbook.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:""});
+      if(!rows||rows.length<2) throw new Error('No data rows');
+      const headers=rows[0].map(c=>(c||'').toString().trim());
+      const expected=["Name OF the Candidate","Attempt No","Gender","Medium","Index Number","Religion","Language & Literature","English language","Science","Mathematics","History","1st Subject Group","2nd Subject Group","3rd Subject Group","Grade Count"];
+      for(let i=0;i<5;i++) if(headers[i]!==expected[i]) throw new Error(`Header mismatch at col ${i+1}`);
+      const colIdx={name:0,attempt:1,gender:2,medium:3,indexNo:4,religion:5,langLit:6,english:7,science:8,maths:9,history:10,group1:11,group2:12,group3:13,gradeCount:14};
+      const dataRows=rows.slice(1).filter(r=>r[colIdx.name]&&r[colIdx.name].toString().trim()!=='');
+      if(!dataRows.length) throw new Error('No student rows');
+      state.students=[]; state.subjectStats=new Map(); state.classStats=new Map();
+      for(let row of dataRows){
+        const getCell=(idx)=>(idx>=0&&row[idx]!==undefined&&row[idx]!==null)?row[idx].toString():'';
+        let candidate={name:getCell(colIdx.name),attempt:getCell(colIdx.attempt),gender:getCell(colIdx.gender),medium:getCell(colIdx.medium),indexNo:getCell(colIdx.indexNo),gradeCountRaw:getCell(colIdx.gradeCount),className:'',teacher:'',subjects:[]};
+        const subjectCols=[colIdx.religion,colIdx.langLit,colIdx.english,colIdx.science,colIdx.maths,colIdx.history,colIdx.group1,colIdx.group2,colIdx.group3];
+        for(let col of subjectCols){
+          let raw=getCell(col);
+          let parsed=parseSubjectCell(raw);
+          if(parsed){
+            if(parsed.medium==='?' && candidate.medium) parsed.medium = candidate.medium;
+            candidate.subjects.push(parsed);
+          }
+        }
+        for(let sub of candidate.subjects){
+          const code=sub.subjectCode;
+          if(!state.subjectStats.has(code)) state.subjectStats.set(code,{total:0,A:0,B:0,C:0,S:0,W:0,name:getSubjectName(code)});
+          const stat=state.subjectStats.get(code); stat.total++;
+          if(sub.grade==='A') stat.A++; else if(sub.grade==='B') stat.B++; else if(sub.grade==='C') stat.C++; else if(sub.grade==='S') stat.S++; else if(sub.grade==='W') stat.W++;
+        }
+        state.students.push(candidate);
+      }
+      document.getElementById('debugInfo').innerHTML=`✅ Loaded ${state.students.length} candidates, ${state.subjectStats.size} subjects.`;
+      document.getElementById('errorMsg').classList.add('d-none');
+      populateFilters(); renderAll();
+      document.querySelector('.nav-link-custom[data-section="overview"]').click();
+    } catch(err){ document.getElementById('errorMsg').textContent='Error: '+err.message; document.getElementById('errorMsg').classList.remove('d-none'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function populateFilters(){
+  let mediums=[...new Set(state.students.map(s=>s.medium).filter(Boolean))];
+  let subjects=Array.from(state.subjectStats.keys()).map(c=>`<option value="${c}">${c} - ${getSubjectName(c)}</option>`);
+  document.getElementById('filterMedium').innerHTML=`<option value="All Mediums">All Mediums</option>`+mediums.map(m=>`<option>${m}</option>`).join('');
+  document.getElementById('filterSubject').innerHTML=`<option value="All Subjects">All Subjects</option>`+subjects.join('');
+}
+
+function renderAll(){ renderKpis(); renderCharts(); renderTeacherPerformance(); renderSubjectTable(); renderStudents(); renderSidebarMeta(); }
+function renderSidebarMeta(){ document.getElementById('sidebarMeta').textContent=state.students.length?`${state.students.length} students, ${state.subjectStats.size} subjects`:'No file loaded'; document.getElementById('dashSub').textContent=state.students.length?'Dashboard ready':'Upload Excel'; }
+
+// Event bindings
+document.getElementById('btnUpload').addEventListener('click',()=>document.getElementById('excelUpload').click());
+document.getElementById('excelUpload').addEventListener('change',e=>{if(e.target.files[0]) parseExcel(e.target.files[0]);});
+document.getElementById('btnExportExcel').addEventListener('click',()=>{ if(!state.students.length) return alert('No data'); let ws=XLSX.utils.json_to_sheet(state.students.map(s=>({Index:s.indexNo,Name:s.name,Gender:s.gender,Medium:s.medium,Passes:calcPassCount(s.subjects),Fails:calcFailCount(s.subjects),Score:avgScore(s),Subjects:s.subjects.map(x=>`${x.subjectCode}${x.medium}${x.grade}`).join(',')}))); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Students'); XLSX.writeFile(wb,'ol_results.xlsx'); });
+document.getElementById('btnExportExcel2').addEventListener('click',()=>document.getElementById('btnExportExcel').click());
+document.getElementById('btnPrintSubject').addEventListener('click',printSubjectReport);
+document.getElementById('btnPrintStudent').addEventListener('click',printStudentReport);
+document.getElementById('btnPrintAllStudents').addEventListener('click',printStudentReport);
+document.getElementById('btnTheme').addEventListener('click',()=>{ document.body.classList.toggle('dark'); document.querySelector('#btnTheme i').className=document.body.classList.contains('dark')?'fa-solid fa-sun':'fa-solid fa-moon'; renderAll(); });
+document.getElementById('btnReset').addEventListener('click',()=>{ ['searchStudent','filterGender','filterMedium','filterPass','filterSubject'].forEach(id=>{let el=document.getElementById(id); if(el&&el.tagName==='SELECT')el.value=el.options[0].value; else if(el)el.value='';}); document.getElementById('sortStudents').value='name'; renderStudents(); });
+document.getElementById('btnSidebar').addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('open'));
+document.querySelectorAll('.nav-link-custom[data-section]').forEach(a=>a.addEventListener('click',()=>{ let sec=a.dataset.section; document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById(sec).classList.add('active'); document.querySelectorAll('.nav-link-custom[data-section]').forEach(n=>n.classList.remove('active')); a.classList.add('active'); let titles={overview:'Overview',students:'Student Details',subjects:'Subject Analysis',reports:'Reports'}; document.getElementById('dashTitle').innerText=titles[sec]||sec; if(window.innerWidth<=992) document.getElementById('sidebar').classList.remove('open'); }));
+['searchStudent','filterGender','filterMedium','filterPass','filterSubject','sortStudents'].forEach(id=>document.getElementById(id).addEventListener('input',()=>renderStudents()));
+renderAll();
+</script>
+</body>
+</html>
