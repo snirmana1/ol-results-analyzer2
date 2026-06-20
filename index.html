@@ -59,6 +59,8 @@
     .badge-pass { background:rgba(16,185,129,.12);color:var(--success);border:1px solid rgba(16,185,129,.18); }
     .badge-fail { background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.18); }
     .badge-warm { background:rgba(245,158,11,.12);color:var(--brand-3);border:1px solid rgba(245,158,11,.18); }
+    .badge-eligible { background:rgba(16,185,129,.15);color:#0b6e4f;border:1px solid rgba(16,185,129,.25); }
+    .badge-noteligible { background:rgba(239,68,68,.12);color:#991b1b;border:1px solid rgba(239,68,68,.2); }
     .subject-code { padding:4px 9px;border-radius:999px;background:#edf2ff;color:#1d4ed8;font-family:monospace;font-size:.82rem; }
     body.dark .subject-code { background:rgba(79,140,255,.14);color:#bfdbfe; }
     .section { display:none; }
@@ -100,8 +102,12 @@
     .score-mini .val { font-size:1.5rem;font-weight:900; }
     .score-mini .lbl { font-size:.75rem;color:var(--muted); }
     .modal-score-row { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px; }
+    .eligibility-breakdown { background:rgba(248,250,252,.9);border-radius:14px;padding:14px 18px;margin:12px 0 16px;font-size:.9rem;border:1px solid rgba(148,163,184,.15); }
+    body.dark .eligibility-breakdown { background:rgba(255,255,255,.05); }
+    .eligibility-breakdown ul { margin:6px 0 0 20px;padding:0; }
+    .eligibility-breakdown ul li { margin-bottom:2px; }
 
-    /* ===== PRINT STYLES (clean, no sidebar, no filters) ===== */
+    /* Print styles */
     @media print {
       body, html { background:#fff!important; margin:0; padding:0; }
       .app-shell, .sidebar, .topbar, .upload-zone, .filters-grid, .top-actions, .nav-link-custom, .btn, .mobile-toggle, .panel, #errorMsg, #debugInfo { display:none!important; }
@@ -118,13 +124,15 @@
       .print-stat .lbl { font-size:9pt; color:#555; display:block; margin-top:4px; }
       .print-section-title { font-size:13pt; font-weight:800; margin:20px 0 10px; padding-bottom:4px; border-bottom:1.5px solid #e5e7eb; }
       .print-table { width:100%; border-collapse:collapse; font-size:9.5pt; margin:10px 0; }
-      .print-table th { background:#111!important; color:#fff!important; padding:7px 10px; text-align:left; print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+      .print-table th { background:#111!important; color:#fff!important; padding:7px 10px; text-align:left; print-color-adjust:exact; }
       .print-table td { padding:6px 10px; border-bottom:1px solid #e5e7eb; }
       .print-footer { margin-top:30px; padding-top:12px; border-top:1px solid #ccc; font-size:8pt; color:#888; display:flex; justify-content:space-between; }
       .print-student-meta { display:flex; gap:20px; flex-wrap:wrap; margin:8px 0 16px; }
       .print-student-meta span { font-size:10.5pt; }
       .print-grade-summary { display:flex; gap:18px; margin:10px 0 18px; }
       .print-grade-summary div { font-size:11pt; }
+      .print-eligibility { border:1px solid #111; border-radius:8px; padding:12px 16px; margin:10px 0 16px; }
+      .print-eligibility ul { margin:4px 0 0 18px;font-size:9pt; }
     }
     .print-content { display:none; }
   </style>
@@ -137,6 +145,7 @@
     <a class="nav-link-custom active" data-section="overview"><i class="fa-solid fa-gauge-high"></i>Overview</a>
     <a class="nav-link-custom" data-section="students"><i class="fa-solid fa-user-graduate"></i>Student Details</a>
     <a class="nav-link-custom" data-section="subjects"><i class="fa-solid fa-book-open"></i>Subject Analysis</a>
+    <a class="nav-link-custom" data-section="topresults"><i class="fa-solid fa-trophy"></i>Top Results</a>
     <a class="nav-link-custom" data-section="reports"><i class="fa-solid fa-file-export"></i>Reports</a>
     <div class="nav-section-title">Tools</div>
     <a class="nav-link-custom" id="btnTheme"><i class="fa-solid fa-moon"></i>Dark / Light</a>
@@ -159,9 +168,11 @@
       <!-- Overview -->
       <section id="overview" class="section active"><div class="row g-3 mb-4" id="statsCards"></div><div class="row g-3 mb-4"><div class="col-lg-8"><div class="card card-modern h-100"><div class="card-header">Result Trend</div><div class="card-body"><div class="chart-box"><canvas id="trendChart"></canvas></div></div></div></div><div class="col-lg-4"><div class="card card-modern h-100"><div class="card-header">Pass / Fail Split</div><div class="card-body"><div class="chart-box" style="height:300px"><canvas id="splitChart"></canvas></div><div class="small-muted text-center mt-2" id="splitMeta"></div></div></div></div></div><div class="row g-3"><div class="col-lg-6"><div class="card card-modern h-100"><div class="card-header">Class / Teacher Performance</div><div class="card-body" id="teacherPerformanceBox"></div></div></div><div class="col-lg-6"><div class="card card-modern h-100"><div class="card-header">Subject Strength Index</div><div class="card-body"><div class="chart-box"><canvas id="heatmapChart"></canvas></div></div></div></div></div></section>
       <!-- Students -->
-      <section id="students" class="section"><div class="card card-modern mb-4"><div class="card-header">Student Filters</div><div class="card-body"><div class="filters-grid"><input id="searchStudent" class="form-control" placeholder="Search"><select id="filterGender" class="form-select"><option>All Genders</option><option>Male</option><option>Female</option></select><select id="filterMedium" class="form-select"><option>All Mediums</option></select><select id="filterPass" class="form-select"><option>All Status</option><option value="pass">Pass</option><option value="fail">Fail</option></select><select id="filterSubject" class="form-select"><option>All Subjects</option></select><select id="sortStudents" class="form-select"><option value="name">Sort by Name</option><option value="indexNo">Index</option><option value="passCount">Pass Count</option></select></div></div></div><div class="card card-modern"><div class="card-header d-flex justify-content-between"><span>Candidate Results</span><span class="badge badge-soft" id="studentCountBadge">0 students</span></div><div class="card-body p-0"><div class="table-responsive" style="max-height:560px;overflow:auto;"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Index</th><th>Name</th><th>Gender</th><th>Medium</th><th>Subjects</th><th>Grade Count</th><th>Action</th></tr></thead><tbody id="studentBody"></tbody></table></div></div></div></section>
+      <section id="students" class="section"><div class="card card-modern mb-4"><div class="card-header">Student Filters</div><div class="card-body"><div class="filters-grid"><input id="searchStudent" class="form-control" placeholder="Search"><select id="filterGender" class="form-select"><option>All Genders</option><option>Male</option><option>Female</option></select><select id="filterMedium" class="form-select"><option>All Mediums</option></select><select id="filterEligibility" class="form-select"><option>All Status</option><option value="eligible">Eligible for A/L</option><option value="noteligible">Not Eligible</option></select><select id="filterSubject" class="form-select"><option>All Subjects</option></select><select id="sortStudents" class="form-select"><option value="name">Sort by Name</option><option value="indexNo">Index</option><option value="passCount">Pass Count</option></select></div></div></div><div class="card card-modern"><div class="card-header d-flex justify-content-between"><span>Candidate Results</span><span class="badge badge-soft" id="studentCountBadge">0 students</span></div><div class="card-body p-0"><div class="table-responsive" style="max-height:560px;overflow:auto;"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Index</th><th>Name</th><th>Gender</th><th>Medium</th><th>Subjects</th><th>Grade Count</th><th>Eligibility</th><th>Action</th></tr></thead><tbody id="studentBody"></tbody></table></div></div></div></section>
       <!-- Subjects -->
       <section id="subjects" class="section"><div class="row g-3 mb-4"><div class="col-12"><div class="card card-modern h-100"><div class="card-header">Subject Comparison</div><div class="card-body"><div class="chart-box" style="height:450px"><canvas id="subjectChart"></canvas></div></div></div></div></div><div class="card card-modern mb-4"><div class="card-header d-flex justify-content-between"><span>Subject-wise Grade Distribution</span><span class="badge badge-soft" id="subjectCountBadge">0 subjects</span></div><div class="card-body p-0"><div class="table-responsive" style="max-height:560px;"><table class="table table-hover mb-0"><thead><tr><th>Code</th><th>Subject</th><th>Total</th><th>A</th><th>B</th><th>C</th><th>S</th><th>W</th><th>Pass%</th></tr></thead><tbody id="subjectBody"></tbody></table></div></div></div><div class="card card-modern"><div class="card-header">Progress by Subject</div><div class="card-body" id="progressBox"></div></div></section>
+      <!-- Top Results -->
+      <section id="topresults" class="section"><div class="card card-modern"><div class="card-header d-flex justify-content-between"><span>🏆 Top Performing Students</span><span class="badge badge-soft" id="topCount">0 students</span></div><div class="card-body p-0"><div class="table-responsive" style="max-height:560px;overflow:auto;"><table class="table table-hover mb-0 align-middle"><thead><tr><th>Rank</th><th>Index</th><th>Name</th><th>Gender</th><th>Subjects</th><th>Credit Passes</th><th>Total Passes</th><th>Math</th><th>Language</th><th>Eligibility</th></tr></thead><tbody id="topResultsBody"></tbody></table></div></div></div></section>
       <!-- Reports -->
       <section id="reports" class="section"><div class="card card-modern"><div class="card-header">Export & Print</div><div class="card-body"><button class="btn btn-outline-primary w-100 mb-2" id="btnExportExcel2"><i class="fa-solid fa-file-excel"></i> Export Excel</button><button class="btn btn-outline-secondary w-100" id="btnPrintAllStudents"><i class="fa-solid fa-print"></i> Print All Student Reports</button></div></div></section>
     </div>
@@ -169,7 +180,7 @@
 </div>
 
 <!-- Student Detail Modal -->
-<div class="modal-overlay" id="studentModal"><div class="modal-box"><div class="modal-header-custom"><div class="modal-student-meta"><div class="modal-avatar" id="modalAvatar">?</div><div><div class="modal-name" id="modalName">—</div><div class="modal-meta-row" id="modalMetaRow"></div></div></div><button class="modal-close" id="modalClose"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body-custom"><div class="modal-score-row" id="modalScoreRow"></div><div class="modal-section-title">Subject Results</div><table class="table table-sm"><thead><tr><th>Code</th><th>Subject</th><th>Medium</th><th>Grade</th><th>Competency</th><th>Result</th></tr></thead><tbody id="modalSubjectBody"></tbody></table></div></div></div>
+<div class="modal-overlay" id="studentModal"><div class="modal-box"><div class="modal-header-custom"><div class="modal-student-meta"><div class="modal-avatar" id="modalAvatar">?</div><div><div class="modal-name" id="modalName">—</div><div class="modal-meta-row" id="modalMetaRow"></div></div></div><button class="modal-close" id="modalClose"><i class="fa-solid fa-xmark"></i></button></div><div class="modal-body-custom"><div class="modal-score-row" id="modalScoreRow"></div><div id="modalEligibilityBreakdown" class="eligibility-breakdown"></div><div class="modal-section-title">Subject Results</div><table class="table table-sm"><thead><tr><th>Code</th><th>Subject</th><th>Medium</th><th>Grade</th><th>Competency</th><th>Result</th></tr></thead><tbody id="modalSubjectBody"></tbody></table></div></div></div>
 
 <!-- Hidden print containers -->
 <div class="print-content" id="printSubjectContainer"></div>
@@ -194,9 +205,33 @@ function getSubjectName(code) { return SUBJECT_NAMES[code] || `Subject ${code}`;
 
 let state = { students:[], subjectStats:new Map(), classStats:new Map(), charts:{}, currentStudentIndex:null };
 
-function isDark() { return document.body.classList.contains('dark'); }
+// ---------- NEW ELIGIBILITY LOGIC ----------
+function evaluateEligibility(student) {
+  const subjects = student.subjects;
+  // 1. Total passes (A, B, C, S)
+  const totalPasses = subjects.filter(s => ['A','B','C','S'].includes(s.grade)).length;
+  // 2. Credit passes (A, B, C)
+  const creditPasses = subjects.filter(s => ['A','B','C'].includes(s.grade)).length;
+  // 3. Maths (code 32) passed
+  const mathsSubj = subjects.find(s => s.subjectCode === 32);
+  const mathsPassed = mathsSubj && ['A','B','C','S'].includes(mathsSubj.grade);
+  // 4. First language (Sinhala 21 or Tamil 22) passed
+  const langSubj = subjects.find(s => s.subjectCode === 21 || s.subjectCode === 22);
+  const langPassed = langSubj && ['A','B','C','S'].includes(langSubj.grade);
+  const eligible = totalPasses >= 6 && creditPasses >= 3 && mathsPassed && langPassed;
+  return {
+    eligible,
+    totalPasses,
+    creditPasses,
+    mathsPassed,
+    langPassed,
+    mathsGrade: mathsSubj ? mathsSubj.grade : '—',
+    langGrade: langSubj ? langSubj.grade : '—',
+    langName: langSubj ? getSubjectName(langSubj.subjectCode) : '—'
+  };
+}
 
-// ----- PARSER (new format) -----
+// ---------- Existing helper functions ----------
 function parseSubjectCell(raw) {
   if(!raw || raw==='-' || raw===' - ') return null;
   let str = raw.toString().trim();
@@ -249,16 +284,6 @@ function parseGradeCount(val) {
 function calcPassCount(subjects) { return subjects.filter(s=>['A','B','C','S'].includes(s.grade)).length; }
 function calcFailCount(subjects) { return subjects.filter(s=>s.grade==='W').length; }
 function avgScore(student) { if(!student.subjects.length) return 0; const gs=g=>({A:5,B:4,C:3,S:2,W:0})[g]||0; return (student.subjects.reduce((a,s)=>a+gs(s.grade),0)/student.subjects.length).toFixed(1); }
-function overallPass(student) {
-  let map = new Map(); student.subjects.forEach(s=>{ if(!map.has(s.subjectCode) || gradeScore(s.grade)>gradeScore(map.get(s).grade)) map.set(s.subjectCode,s); });
-  let core=[31,11,34,33,32];
-  let corePass=0;
-  if((map.has(21)&&['A','B','C','S'].includes(map.get(21).grade))||(map.has(22)&&['A','B','C','S'].includes(map.get(22).grade))) corePass++;
-  for(let c of core) if(map.has(c) && ['A','B','C','S'].includes(map.get(c).grade)) corePass++;
-  let totalPass=student.subjects.filter(s=>['A','B','C','S'].includes(s.grade)).length;
-  return (corePass>=6 && totalPass>=6);
-}
-function gradeScore(g){ return {A:5,B:4,C:3,S:2,W:0}[g]||0; }
 
 // ----- Render Functions -----
 function renderKpis() {
@@ -266,16 +291,16 @@ function renderKpis() {
   let totalStudents=students.length, totalSubjectEntries=subjectEntries.reduce((s,stat)=>s+stat.total,0);
   let totalPasses=students.reduce((s,st)=>s+calcPassCount(st.subjects),0);
   let totalFails=students.reduce((s,st)=>s+calcFailCount(st.subjects),0);
+  let eligibleCount = students.filter(s=>evaluateEligibility(s).eligible).length;
   let avgSubjects=totalStudents?(totalSubjectEntries/totalStudents).toFixed(1):'0.0';
   let passRate=totalSubjectEntries?((totalPasses/totalSubjectEntries)*100).toFixed(1):'0.0';
   let highest=subjectEntries.sort((a,b)=>b.total-a.total)[0];
   let strongest=subjectEntries.map(s=>({...s,ratio:(s.A+s.B+s.C+s.S)/Math.max(1,s.total)})).sort((a,b)=>b.ratio-a.ratio)[0];
   let bestStudent=students.map(s=>({...s,score:parseFloat(avgScore(s))})).sort((a,b)=>b.score-a.score)[0];
-  let atRisk=students.filter(s=>calcFailCount(s.subjects)>=2).length;
   document.getElementById('statsCards').innerHTML=`
     <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-users"></i></div><div class="stat-label">Total Students</div><div class="stat-value">${totalStudents}</div><div class="stat-note">Ø subjects ${avgSubjects}</div></div></div>
     <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-circle-check"></i></div><div class="stat-label">Pass Rate</div><div class="stat-value">${passRate}%</div><div class="stat-note">${totalPasses} passes</div></div></div>
-    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill" style="background:rgba(239,68,68,.12);color:var(--danger)"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="stat-label">At-Risk</div><div class="stat-value" style="color:var(--danger)">${atRisk}</div><div class="stat-note">2+ fails</div></div></div>
+    <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill" style="background:rgba(16,185,129,.12);color:var(--success)"><i class="fa-solid fa-graduation-cap"></i></div><div class="stat-label">Eligible for A/L</div><div class="stat-value" style="color:var(--success)">${eligibleCount}</div><div class="stat-note">${totalStudents?((eligibleCount/totalStudents)*100).toFixed(1):0}%</div></div></div>
     <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-trophy"></i></div><div class="stat-label">Top Subject</div><div class="stat-value" style="font-size:1.1rem">${highest?highest.name:'—'}</div><div class="stat-note">${highest?highest.total+' reg':''}</div></div></div>
     <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-chart-simple"></i></div><div class="stat-label">Best Subject</div><div class="stat-value" style="font-size:1.1rem">${strongest?strongest.name:'—'}</div><div class="stat-note">highest pass %</div></div></div>
     <div class="col-lg-2 col-md-4 col-6"><div class="stat-card"><div class="icon-pill"><i class="fa-solid fa-star"></i></div><div class="stat-label">Best Student</div><div class="stat-value" style="font-size:1rem">${bestStudent?bestStudent.name.substring(0,18):'—'}</div><div class="stat-note">score ${bestStudent?bestStudent.score:''}</div></div></div>
@@ -303,9 +328,9 @@ function renderCharts() {
 
 function renderTeacherPerformance() {
   let groups=new Map();
-  for(let s of state.students){ let key=s.className||s.teacher||'All'; if(!groups.has(key)) groups.set(key,{total:0,passSum:0,failSum:0,scoreSum:0}); let g=groups.get(key); g.total++; g.passSum+=calcPassCount(s.subjects); g.failSum+=calcFailCount(s.subjects); g.scoreSum+=parseFloat(avgScore(s)); }
-  let sorted=Array.from(groups.entries()).map(([name,v])=>({name,total:v.total,passPercent: (v.passSum+v.failSum)?((v.passSum/(v.passSum+v.failSum))*100).toFixed(1):'0.0', avgScore:v.total?(v.scoreSum/v.total).toFixed(1):'0.0'})).sort((a,b)=>parseFloat(b.passPercent)-parseFloat(a.passPercent));
-  document.getElementById('teacherPerformanceBox').innerHTML=sorted.slice(0,5).map((row,i)=>`<div class="mb-3"><div class="d-flex justify-content-between"><b>${i+1}. ${row.name}</b><span class="small-muted">Pass ${row.passPercent}%</span></div><div class="progress" style="height:12px"><div class="progress-bar ${i===0?'bg-success':i===1?'bg-primary':'bg-info'}" style="width:${row.passPercent}%"></div></div><div class="small-muted mt-1">Total ${row.total} | Avg ${row.avgScore}</div></div>`).join('')||'<div class="empty-state">No group data</div>';
+  for(let s of state.students){ let key=s.className||s.teacher||'All'; if(!groups.has(key)) groups.set(key,{total:0,eligible:0,scoreSum:0}); let g=groups.get(key); g.total++; if(evaluateEligibility(s).eligible) g.eligible++; g.scoreSum+=parseFloat(avgScore(s)); }
+  let sorted=Array.from(groups.entries()).map(([name,v])=>({name,total:v.total,eligiblePercent:v.total?((v.eligible/v.total)*100).toFixed(1):'0.0', avgScore:v.total?(v.scoreSum/v.total).toFixed(1):'0.0'})).sort((a,b)=>parseFloat(b.eligiblePercent)-parseFloat(a.eligiblePercent));
+  document.getElementById('teacherPerformanceBox').innerHTML=sorted.slice(0,5).map((row,i)=>`<div class="mb-3"><div class="d-flex justify-content-between"><b>${i+1}. ${row.name}</b><span class="small-muted">A/L Eligible ${row.eligiblePercent}%</span></div><div class="progress" style="height:12px"><div class="progress-bar ${i===0?'bg-success':i===1?'bg-primary':'bg-info'}" style="width:${row.eligiblePercent}%"></div></div><div class="small-muted mt-1">Total ${row.total} | Avg ${row.avgScore}</div></div>`).join('')||'<div class="empty-state">No group data</div>';
 }
 
 function renderSubjectTable() {
@@ -319,16 +344,16 @@ function filterStudents() {
   let q=document.getElementById('searchStudent').value.trim().toLowerCase();
   let gender=document.getElementById('filterGender').value;
   let medium=document.getElementById('filterMedium').value;
-  let passState=document.getElementById('filterPass').value;
+  let eligFilter=document.getElementById('filterEligibility').value;
   let subjFilter=document.getElementById('filterSubject').value;
   let sort=document.getElementById('sortStudents').value;
   let filtered=state.students.filter(s=>{
     if(q && !s.name.toLowerCase().includes(q) && !s.indexNo.toLowerCase().includes(q)) return false;
     if(gender!=='All Genders' && s.gender!==gender) return false;
     if(medium!=='All Mediums' && s.medium!==medium) return false;
-    let overall=overallPass(s);
-    if(passState==='pass' && !overall) return false;
-    if(passState==='fail' && overall) return false;
+    let elig=evaluateEligibility(s);
+    if(eligFilter==='eligible' && !elig.eligible) return false;
+    if(eligFilter==='noteligible' && elig.eligible) return false;
     if(subjFilter!=='All Subjects' && !s.subjects.some(sub=>sub.subjectCode.toString()===subjFilter)) return false;
     return true;
   });
@@ -347,11 +372,41 @@ function renderStudents() {
     let gc=parseGradeCount(s.gradeCountRaw) || {A:0,B:0,C:0,S:0,W:0};
     let gcHtml=`<span class="badge badge-soft">A:${gc.A}</span> <span class="badge badge-soft">B:${gc.B}</span> <span class="badge badge-soft">C:${gc.C}</span> <span class="badge badge-warm">S:${gc.S}</span> <span class="badge badge-fail">W:${gc.W}</span>`;
     let subjectsHtml=s.subjects.map(sub=>`<span class="badge bg-light text-dark me-1">${sub.subjectCode}${sub.medium}:${sub.grade}</span>`).join(' ');
-    let passRate=s.subjects.length?((calcPassCount(s.subjects)/s.subjects.length)*100).toFixed(0)+'%':'0%';
+    let elig=evaluateEligibility(s);
+    let eligBadge = elig.eligible ? '<span class="badge badge-eligible">✅ Eligible for A/L</span>' : '<span class="badge badge-noteligible">❌ Not Eligible</span>';
     let atRiskBadge=calcFailCount(s.subjects)>=2?' <span class="badge badge-fail">At Risk</span>':'';
-    return `<tr><td>${s.indexNo||'—'}</td><td>${s.name}${atRiskBadge}</td><td>${s.gender||'—'}</td><td>${s.medium||'—'}</td><td style="min-width:260px">${subjectsHtml||'—'}</td><td>${gcHtml}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openStudentModal(${realIdx})"><i class="fa-regular fa-eye"></i></button></td></tr>`;
+    return `<tr><td>${s.indexNo||'—'}</td><td>${s.name}${atRiskBadge}</td><td>${s.gender||'—'}</td><td>${s.medium||'—'}</td><td style="min-width:260px">${subjectsHtml||'—'}</td><td>${gcHtml}</td><td>${eligBadge}</td><td><button class="btn btn-sm btn-outline-primary" onclick="openStudentModal(${realIdx})"><i class="fa-regular fa-eye"></i></button></td></tr>`;
   }).join('');
-  if(!filtered.length) tbody.innerHTML='<tr><td colspan="7" class="text-center py-4">No matching students</td></tr>';
+  if(!filtered.length) tbody.innerHTML='<tr><td colspan="8" class="text-center py-4">No matching students</td></tr>';
+}
+
+// ----- Top Results -----
+function renderTopResults() {
+  if(!state.students.length) {
+    document.getElementById('topResultsBody').innerHTML='<tr><td colspan="10" class="text-center py-4">No data available</td></tr>';
+    document.getElementById('topCount').textContent='0 students';
+    return;
+  }
+  const ranked = state.students.map(s => {
+    const elig = evaluateEligibility(s);
+    return { ...s, ...elig };
+  });
+  ranked.sort((a,b) => {
+    if(a.eligible !== b.eligible) return a.eligible ? -1 : 1;
+    if(b.creditPasses !== a.creditPasses) return b.creditPasses - a.creditPasses;
+    if(b.totalPasses !== a.totalPasses) return b.totalPasses - a.totalPasses;
+    return parseFloat(b.avgScore) - parseFloat(a.avgScore);
+  });
+  document.getElementById('topCount').textContent=`${ranked.length} students`;
+  const tbody=document.getElementById('topResultsBody');
+  tbody.innerHTML=ranked.map((s,idx)=>{
+    const rank=idx+1;
+    const medal = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':`#${rank}`;
+    const eligBadge = s.eligible ? '<span class="badge badge-eligible">✅ Eligible</span>' : '<span class="badge badge-noteligible">❌ Not Eligible</span>';
+    const mathBadge = s.mathsPassed ? '<span class="badge bg-success">✓</span>' : '<span class="badge bg-danger">✗</span>';
+    const langBadge = s.langPassed ? '<span class="badge bg-success">✓</span>' : '<span class="badge bg-danger">✗</span>';
+    return `<tr><td><strong>${medal}</strong></td><td>${s.indexNo||'—'}</td><td>${s.name}</td><td>${s.gender||'—'}</td><td>${s.subjects.length}</td><td><strong>${s.creditPasses}</strong></td><td>${s.totalPasses}</td><td>${mathBadge}</td><td>${langBadge}</td><td>${eligBadge}</td></tr>`;
+  }).join('');
 }
 
 // ----- Modal -----
@@ -361,7 +416,17 @@ function openStudentModal(idx) {
   document.getElementById('modalName').textContent=s.name;
   document.getElementById('modalMetaRow').innerHTML=`<span class="modal-meta-pill">${s.gender||'Unknown'}</span><span class="modal-meta-pill">${s.medium||'—'} Medium</span><span class="modal-meta-pill">${s.indexNo||'No index'}</span>`;
   let gc=parseGradeCount(s.gradeCountRaw) || {A:0,B:0,C:0,S:0,W:0};
-  document.getElementById('modalScoreRow').innerHTML=`<div class="score-mini"><div class="val">${s.subjects.length}</div><div class="lbl">Total</div></div><div class="score-mini"><div class="val" style="color:var(--success)">${calcPassCount(s.subjects)}</div><div class="lbl">Pass</div></div><div class="score-mini"><div class="val" style="color:var(--danger)">${calcFailCount(s.subjects)}</div><div class="lbl">Fail</div></div><div class="score-mini"><div class="val" style="color:#7c3aed">${avgScore(s)}</div><div class="lbl">Avg</div></div>`;
+  let elig=evaluateEligibility(s);
+  document.getElementById('modalScoreRow').innerHTML=`<div class="score-mini"><div class="val">${s.subjects.length}</div><div class="lbl">Total</div></div><div class="score-mini"><div class="val" style="color:var(--success)">${calcPassCount(s.subjects)}</div><div class="lbl">Passes</div></div><div class="score-mini"><div class="val" style="color:var(--brand)">${elig.creditPasses}</div><div class="lbl">Credit</div></div><div class="score-mini"><div class="val" style="color:#7c3aed">${avgScore(s)}</div><div class="lbl">Avg</div></div>`;
+  document.getElementById('modalEligibilityBreakdown').innerHTML = `
+    <div><strong>A/L Eligibility: </strong> ${elig.eligible ? '<span class="badge badge-eligible">✅ ELIGIBLE</span>' : '<span class="badge badge-noteligible">❌ NOT ELIGIBLE</span>'}</div>
+    <ul>
+      <li>Total passes (A/B/C/S): <strong>${elig.totalPasses}</strong> ${elig.totalPasses>=6?'✅':'❌'} (need 6+)</li>
+      <li>Credit passes (A/B/C): <strong>${elig.creditPasses}</strong> ${elig.creditPasses>=3?'✅':'❌'} (need 3+)</li>
+      <li>Mathematics (${elig.mathsGrade}): ${elig.mathsPassed?'✅ Passed':'❌ Failed (need S or higher)'}</li>
+      <li>First Language (${elig.langName}: ${elig.langGrade}): ${elig.langPassed?'✅ Passed':'❌ Failed (need S or higher)'}</li>
+    </ul>
+  `;
   document.getElementById('modalSubjectBody').innerHTML=s.subjects.map(sub=>{
     let pass=['A','B','C','S'].includes(sub.grade);
     return `<tr><td>${sub.subjectCode}</td><td>${getSubjectName(sub.subjectCode)}</td><td>${sub.medium}</td><td><span class="grade-pill grade-${sub.grade}">${sub.grade}</span></td><td>${sub.competency||'—'}</td><td><span class="badge ${pass?'badge-pass':'badge-fail'}">${pass?'Pass':'Fail'}</span></td></tr>`;
@@ -372,31 +437,25 @@ document.getElementById('modalClose').addEventListener('click',()=>document.getE
 document.getElementById('studentModal').addEventListener('click',e=>{ if(e.target===e.currentTarget) e.currentTarget.classList.remove('open'); });
 window.openStudentModal=openStudentModal;
 
-// ----- PRINT: Subject Report -----
+// ----- Print: Subject Report -----
 function printSubjectReport() {
   if(!state.students.length){ alert('No data loaded.'); return; }
   let subjectEntries=Array.from(state.subjectStats.entries()).map(([code,stat])=>({code,...stat})).sort((a,b)=>b.total-a.total);
-  let classGroups=Array.from(state.classStats.entries()).map(([name,v])=>({name,...v})).sort((a,b)=>parseFloat(b.passPercent)-parseFloat(a.passPercent));
   let totalPass=state.students.reduce((s,st)=>s+calcPassCount(st.subjects),0);
   let totalSubjectEntries=Array.from(state.subjectStats.values()).reduce((s,stat)=>s+stat.total,0);
   let passRate=totalSubjectEntries?((totalPass/totalSubjectEntries)*100).toFixed(1):'0.0';
-  let atRisk=state.students.filter(s=>calcFailCount(s.subjects)>=2).length;
-  let strongest=Array.from(state.subjectStats.values()).map(s=>({...s,pct:((s.A+s.B+s.C+s.S)/Math.max(1,s.total))*100})).sort((a,b)=>b.pct-a.pct)[0];
+  let eligibleCount=state.students.filter(s=>evaluateEligibility(s).eligible).length;
   let html = `<div class="print-page">
     <div class="print-header"><div><div class="print-school-name">O/L Results – Subject Analysis</div><div class="print-report-type">Subject-wise grade distribution & performance</div></div><div class="print-date">${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}</div></div>
     <div class="print-stat-row">
       <div class="print-stat"><span class="val">${state.students.length}</span><span class="lbl">Total Candidates</span></div>
-      <div class="print-stat"><span class="val">${passRate}%</span><span class="lbl">Overall Pass Rate</span></div>
-      <div class="print-stat"><span class="val">${atRisk}</span><span class="lbl">At-Risk Students</span></div>
+      <div class="print-stat"><span class="val">${passRate}%</span><span class="lbl">Subject Pass Rate</span></div>
+      <div class="print-stat"><span class="val">${eligibleCount}</span><span class="lbl">A/L Eligible</span></div>
       <div class="print-stat"><span class="val">${state.subjectStats.size}</span><span class="lbl">Subjects Offered</span></div>
     </div>
     <div class="print-section-title">Subject-wise Grade Distribution</div>
     <table class="print-table"><thead><tr><th>Code</th><th>Subject</th><th>Total</th><th>A</th><th>B</th><th>C</th><th>S</th><th>W</th><th>Pass %</th></tr></thead><tbody>
     ${subjectEntries.map(stat=>{let p=((stat.A+stat.B+stat.C+stat.S)/Math.max(1,stat.total)*100).toFixed(1); return `<tr><td>${stat.code}</td><td>${stat.name}</td><td>${stat.total}</td><td>${stat.A}</td><td>${stat.B}</td><td>${stat.C}</td><td>${stat.S}</td><td>${stat.W}</td><td><b>${p}%</b></td></tr>`;}).join('')}
-    </tbody></table>
-    <div class="print-section-title">Class / Teacher Performance</div>
-    <table class="print-table"><thead><tr><th>Group</th><th>Total</th><th>Pass %</th><th>Avg Score</th></tr></thead><tbody>
-    ${classGroups.map(g=>`<tr><td>${g.name}</td><td>${g.total}</td><td>${g.passPercent}%</td><td>${g.avgScore}</td></tr>`).join('')}
     </tbody></table>
     <div class="print-footer"><span>O/L Results Analyzer</span><span>Confidential</span></div>
   </div>`;
@@ -407,20 +466,19 @@ function printSubjectReport() {
   setTimeout(()=>{ win.print(); },300);
 }
 
-// ----- PRINT: Student Report (one per page) -----
+// ----- Print: Student Report (one per page) -----
 function printStudentReport() {
   if(!state.students.length){ alert('No data loaded.'); return; }
   let pages = state.students.map((s,i)=>{
     let gc=parseGradeCount(s.gradeCountRaw) || {A:0,B:0,C:0,S:0,W:0};
-    let passStatus = overallPass(s) ? 'PASS' : 'FAIL';
-    let passBadge = overallPass(s) ? '✅ PASS' : '❌ FAIL';
+    let elig=evaluateEligibility(s);
+    let eligStatus = elig.eligible ? '✅ ELIGIBLE FOR A/L' : '❌ NOT ELIGIBLE FOR A/L';
     return `<div class="print-page">
       <div class="print-header"><div><div class="print-school-name">${s.name}</div><div class="print-report-type">Individual Student Report · ${s.indexNo||'No Index'}</div></div><div class="print-date">${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}</div></div>
       <div class="print-student-meta">
         <span><b>Gender:</b> ${s.gender||'—'}</span>
         <span><b>Medium:</b> ${s.medium||'—'}</span>
         <span><b>Attempt:</b> ${s.attempt||'—'}</span>
-        <span><b>Overall:</b> <span style="color:${overallPass(s)?'#10b981':'#ef4444'};font-weight:900;">${passBadge}</span></span>
       </div>
       <div class="print-grade-summary">
         <div><b>A:</b> ${gc.A}</div>
@@ -428,7 +486,16 @@ function printStudentReport() {
         <div><b>C:</b> ${gc.C}</div>
         <div><b>S:</b> ${gc.S}</div>
         <div><b>W:</b> ${gc.W}</div>
-        <div style="margin-left:auto;"><b>Passed:</b> ${calcPassCount(s.subjects)} | <b>Failed:</b> ${calcFailCount(s.subjects)}</div>
+        <div style="margin-left:auto;"><b>Passes:</b> ${calcPassCount(s.subjects)} | <b>Credit:</b> ${elig.creditPasses}</div>
+      </div>
+      <div class="print-eligibility" style="border-color:${elig.eligible?'#10b981':'#ef4444'};">
+        <div><strong>A/L Eligibility: ${eligStatus}</strong></div>
+        <ul>
+          <li>Total passes: ${elig.totalPasses} ${elig.totalPasses>=6?'✅':'❌'} (need 6+)</li>
+          <li>Credit passes: ${elig.creditPasses} ${elig.creditPasses>=3?'✅':'❌'} (need 3+)</li>
+          <li>Mathematics: ${elig.mathsPassed?'✅ Passed':'❌ Failed'} (grade ${elig.mathsGrade})</li>
+          <li>First Language (${elig.langName}): ${elig.langPassed?'✅ Passed':'❌ Failed'} (grade ${elig.langGrade})</li>
+        </ul>
       </div>
       <div class="print-section-title">Subject Results</div>
       <table class="print-table"><thead><tr><th>Code</th><th>Subject</th><th>Medium</th><th>Grade</th><th>Result</th></tr></thead><tbody>
@@ -438,7 +505,7 @@ function printStudentReport() {
     </div>`;
   }).join('');
   let win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>Student Reports</title><style>body{font-family:sans-serif;margin:0;padding:20px;} .print-page{max-width:1100px;margin:0 auto;page-break-after:always;padding:20px 10px;} .print-page:last-child{page-break-after:avoid;} .print-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:20px;} .print-school-name{font-size:20pt;font-weight:900;margin:0;} .print-report-type{font-size:10pt;color:#555;margin:0;} .print-date{font-size:9pt;color:#555;text-align:right;} .print-student-meta{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0 14px;font-size:10.5pt;} .print-grade-summary{display:flex;gap:18px;margin:10px 0 16px;font-size:11pt;} .print-section-title{font-size:12pt;font-weight:800;margin:16px 0 8px;border-bottom:1.5px solid #e5e7eb;padding-bottom:4px;} .print-table{width:100%;border-collapse:collapse;font-size:9.5pt;} .print-table th{background:#111!important;color:#fff!important;padding:7px 10px;text-align:left;print-color-adjust:exact;} .print-table td{padding:6px 10px;border-bottom:1px solid #e5e7eb;} .print-footer{margin-top:24px;padding-top:10px;border-top:1px solid #ccc;font-size:8pt;color:#888;display:flex;justify-content:space-between;}
+  win.document.write(`<!DOCTYPE html><html><head><title>Student Reports</title><style>body{font-family:sans-serif;margin:0;padding:20px;} .print-page{max-width:1100px;margin:0 auto;page-break-after:always;padding:20px 10px;} .print-page:last-child{page-break-after:avoid;} .print-header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:14px;margin-bottom:20px;} .print-school-name{font-size:20pt;font-weight:900;margin:0;} .print-report-type{font-size:10pt;color:#555;margin:0;} .print-date{font-size:9pt;color:#555;text-align:right;} .print-student-meta{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0 14px;font-size:10.5pt;} .print-grade-summary{display:flex;gap:18px;margin:10px 0 16px;font-size:11pt;} .print-eligibility{border:1px solid #111;border-radius:8px;padding:10px 14px;margin:10px 0 16px;} .print-eligibility ul{margin:4px 0 0 18px;font-size:9pt;} .print-section-title{font-size:12pt;font-weight:800;margin:16px 0 8px;border-bottom:1.5px solid #e5e7eb;padding-bottom:4px;} .print-table{width:100%;border-collapse:collapse;font-size:9.5pt;} .print-table th{background:#111!important;color:#fff!important;padding:7px 10px;text-align:left;print-color-adjust:exact;} .print-table td{padding:6px 10px;border-bottom:1px solid #e5e7eb;} .print-footer{margin-top:24px;padding-top:10px;border-top:1px solid #ccc;font-size:8pt;color:#888;display:flex;justify-content:space-between;}
 </style></head><body>${pages}</body></html>`);
   win.document.close();
   setTimeout(()=>{ win.print(); },300);
@@ -497,22 +564,22 @@ function populateFilters(){
   document.getElementById('filterSubject').innerHTML=`<option value="All Subjects">All Subjects</option>`+subjects.join('');
 }
 
-function renderAll(){ renderKpis(); renderCharts(); renderTeacherPerformance(); renderSubjectTable(); renderStudents(); renderSidebarMeta(); }
+function renderAll(){ renderKpis(); renderCharts(); renderTeacherPerformance(); renderSubjectTable(); renderStudents(); renderTopResults(); renderSidebarMeta(); }
 function renderSidebarMeta(){ document.getElementById('sidebarMeta').textContent=state.students.length?`${state.students.length} students, ${state.subjectStats.size} subjects`:'No file loaded'; document.getElementById('dashSub').textContent=state.students.length?'Dashboard ready':'Upload Excel'; }
 
 // Event bindings
 document.getElementById('btnUpload').addEventListener('click',()=>document.getElementById('excelUpload').click());
 document.getElementById('excelUpload').addEventListener('change',e=>{if(e.target.files[0]) parseExcel(e.target.files[0]);});
-document.getElementById('btnExportExcel').addEventListener('click',()=>{ if(!state.students.length) return alert('No data'); let ws=XLSX.utils.json_to_sheet(state.students.map(s=>({Index:s.indexNo,Name:s.name,Gender:s.gender,Medium:s.medium,Passes:calcPassCount(s.subjects),Fails:calcFailCount(s.subjects),Score:avgScore(s),Subjects:s.subjects.map(x=>`${x.subjectCode}${x.medium}${x.grade}`).join(',')}))); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Students'); XLSX.writeFile(wb,'ol_results.xlsx'); });
+document.getElementById('btnExportExcel').addEventListener('click',()=>{ if(!state.students.length) return alert('No data'); let ws=XLSX.utils.json_to_sheet(state.students.map(s=>({Index:s.indexNo,Name:s.name,Gender:s.gender,Medium:s.medium,Passes:calcPassCount(s.subjects),CreditPasses:evaluateEligibility(s).creditPasses,Eligible:evaluateEligibility(s).eligible?'Yes':'No',Subjects:s.subjects.map(x=>`${x.subjectCode}${x.medium}${x.grade}`).join(',')}))); let wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Students'); XLSX.writeFile(wb,'ol_results.xlsx'); });
 document.getElementById('btnExportExcel2').addEventListener('click',()=>document.getElementById('btnExportExcel').click());
 document.getElementById('btnPrintSubject').addEventListener('click',printSubjectReport);
 document.getElementById('btnPrintStudent').addEventListener('click',printStudentReport);
 document.getElementById('btnPrintAllStudents').addEventListener('click',printStudentReport);
 document.getElementById('btnTheme').addEventListener('click',()=>{ document.body.classList.toggle('dark'); document.querySelector('#btnTheme i').className=document.body.classList.contains('dark')?'fa-solid fa-sun':'fa-solid fa-moon'; renderAll(); });
-document.getElementById('btnReset').addEventListener('click',()=>{ ['searchStudent','filterGender','filterMedium','filterPass','filterSubject'].forEach(id=>{let el=document.getElementById(id); if(el&&el.tagName==='SELECT')el.value=el.options[0].value; else if(el)el.value='';}); document.getElementById('sortStudents').value='name'; renderStudents(); });
+document.getElementById('btnReset').addEventListener('click',()=>{ ['searchStudent','filterGender','filterMedium','filterEligibility','filterSubject'].forEach(id=>{let el=document.getElementById(id); if(el&&el.tagName==='SELECT')el.value=el.options[0].value; else if(el)el.value='';}); document.getElementById('sortStudents').value='name'; renderStudents(); });
 document.getElementById('btnSidebar').addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('open'));
-document.querySelectorAll('.nav-link-custom[data-section]').forEach(a=>a.addEventListener('click',()=>{ let sec=a.dataset.section; document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById(sec).classList.add('active'); document.querySelectorAll('.nav-link-custom[data-section]').forEach(n=>n.classList.remove('active')); a.classList.add('active'); let titles={overview:'Overview',students:'Student Details',subjects:'Subject Analysis',reports:'Reports'}; document.getElementById('dashTitle').innerText=titles[sec]||sec; if(window.innerWidth<=992) document.getElementById('sidebar').classList.remove('open'); }));
-['searchStudent','filterGender','filterMedium','filterPass','filterSubject','sortStudents'].forEach(id=>document.getElementById(id).addEventListener('input',()=>renderStudents()));
+document.querySelectorAll('.nav-link-custom[data-section]').forEach(a=>a.addEventListener('click',()=>{ let sec=a.dataset.section; document.querySelectorAll('.section').forEach(s=>s.classList.remove('active')); document.getElementById(sec).classList.add('active'); document.querySelectorAll('.nav-link-custom[data-section]').forEach(n=>n.classList.remove('active')); a.classList.add('active'); let titles={overview:'Overview',students:'Student Details',subjects:'Subject Analysis',topresults:'Top Results',reports:'Reports'}; document.getElementById('dashTitle').innerText=titles[sec]||sec; if(window.innerWidth<=992) document.getElementById('sidebar').classList.remove('open'); if(sec==='topresults') renderTopResults(); }));
+['searchStudent','filterGender','filterMedium','filterEligibility','filterSubject','sortStudents'].forEach(id=>document.getElementById(id).addEventListener('input',()=>renderStudents()));
 renderAll();
 </script>
 </body>
